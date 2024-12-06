@@ -17,7 +17,7 @@ def traverse_and_apply(base_dir, action, max_depth=None):
     for root, dirs, _ in os.walk(base_dir):
         current_depth = root.rstrip(os.path.sep).count(os.path.sep) - base_depth
         if max_depth is not None and current_depth >= max_depth:
-            dirs[:] = []  # Don't recurse further
+            dirs[:] = []
         for subdir in dirs:
             subdir_path = os.path.join(root, subdir)
             action(subdir_path)
