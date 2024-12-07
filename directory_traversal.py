@@ -1,14 +1,7 @@
 import os
 
 def traverse_and_apply(base_dir, action, max_depth=None):
-    """
-    Recursively traverses all subdirectories of a given directory up to a specified depth and applies a specified action.
 
-    Args:
-        base_dir (str): The base directory to traverse.
-        action (Callable[[str], None]): A function to apply to each subdirectory.
-        max_depth (int, optional): The maximum depth to traverse. If None, traverses all depths.
-    """
     if not os.path.isdir(base_dir):
         raise NotADirectoryError(f"The specified base directory '{base_dir}' does not exist.")
 
