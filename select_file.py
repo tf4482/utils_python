@@ -1,4 +1,8 @@
+#!/usr/bin/python3
+
 import os
+import sys
+
 
 def select_file(directory, extension=None):
     """
@@ -49,3 +53,26 @@ def select_file(directory, extension=None):
         elif key == 'q':
             print("Selection cancelled.")
             return None
+
+
+def main():
+    """
+    Main function to handle command line arguments and prompt file selection.
+
+    Usage:
+        python select_file.py <directory> [<extension>]
+    """
+    if len(sys.argv) < 2:
+        print("Usage: python select_file.py <directory> [<extension>]")
+        return
+
+    directory = sys.argv[1]
+    extension = sys.argv[2] if len(sys.argv) > 2 else None
+
+    selected_file = select_file(directory, extension)
+    if selected_file:
+        print(f"Selected file: {selected_file}")
+
+
+if __name__ == "__main__":
+    main()
