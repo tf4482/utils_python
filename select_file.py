@@ -1,6 +1,16 @@
 import os
 
 def select_file(directory, extension=None):
+    """
+    Prompts the user to select a file from the specified directory.
+
+    Args:
+        directory (str): The directory to list files from.
+        extension (str, optional): Filter files by extension. Defaults to None.
+
+    Returns:
+        str: The absolute path of the selected file, or None if cancelled or no files found.
+    """
 
     def list_files(directory, extension):
         if extension:
