@@ -1,5 +1,6 @@
 import os
 
+
 def traverse_and_apply(base_dir, action, max_depth=None):
     """
     Traverse directories starting from base_dir and apply an action to each subdirectory.
@@ -14,7 +15,9 @@ def traverse_and_apply(base_dir, action, max_depth=None):
     """
 
     if not os.path.isdir(base_dir):
-        raise NotADirectoryError(f"The specified base directory '{base_dir}' does not exist.")
+        raise NotADirectoryError(
+            f"The specified base directory '{base_dir}' does not exist."
+        )
 
     base_depth = base_dir.rstrip(os.path.sep).count(os.path.sep)
 

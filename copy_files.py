@@ -1,6 +1,7 @@
 import os
 import shutil
 
+
 def copy_files(source_dir, target_dir, file_list):
     """
     Copies specified files from source directory to target directory.
