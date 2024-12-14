@@ -1,4 +1,6 @@
+import argparse
 import os
+
 
 def list_files(target_dir, file_extension=None):
     """
@@ -14,7 +16,6 @@ def list_files(target_dir, file_extension=None):
     Raises:
         ValueError: If the provided path is not a valid directory.
     """
-
     if not os.path.isdir(target_dir):
         raise ValueError(f"The provided path {target_dir} is not a valid directory.")
 
@@ -29,3 +30,30 @@ def list_files(target_dir, file_extension=None):
                 result_files.append(os.path.join(root, file))
 
     return result_files
+
+
+def main():
+    parser = argparse.ArgumentParser(description="List files in a directory.")
+    parser.add_argument(
+        "target_dir", type=str, help="The directory to search for files."
+    )
+    parser.add_argument(
+        "-e",
+        "--extension",
+        type=str,
+        help="The file extension to filter by.",
+        default=None,
+    )
+
+    args = parser.parse_args()
+
+    try:
+        files = list_files(args.target_dir, args.extension)
+        for file in files:
+            print(file)
+    except ValueError as e:
+        print(e)
+
+
+if __name__ == "__main__":
+    main()
