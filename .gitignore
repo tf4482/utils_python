@@ -1,3 +1,6 @@
+/inventory
+/ansible_collections
+/galaxy_cache
 /vendor
 /storage/*.key
 /public/storage
@@ -12,6 +15,11 @@
 /.idea
 /.history
 /.fleet
+/.phpunit.cache
+files/*
+!files/*example*
+vars/*
+!vars/*example*
 *spec
 **/__pycache__
 *.vscode
@@ -26,7 +34,6 @@
 .old
 .led_pc
 .idea*
-.gitignore
 .env.production
 .env.backup
 .env
@@ -42,3 +49,4 @@ env.ini
 desktop.ini
 config.json
 auth.json
+auth.json.bak
