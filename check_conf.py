@@ -3,7 +3,6 @@
 import os
 import sys
 
-# Directory where config files are stored
 TARGET_DIR = "/etc"
 
 
@@ -48,32 +47,29 @@ def get_all_entries(filename: str) -> dict[str, str]:
     return entries
 
 
-def has_all_keys(filename: str, keys: list[str]) -> bool:
+def has_all_keys(filename: str) -> bool:
     """
-    Checks whether all specified keys exist in the config file
-    and have non-empty, non-whitespace values.
+    Checks whether all keys present in the config file have non-empty, non-whitespace values.
 
     Args:
         filename (str): Filename (with or without extension).
-        keys (list[str]): Keys to validate.
 
     Returns:
-        bool: True if all keys are present and valid, False otherwise.
+        bool: True if all keys have non-empty values, False otherwise.
     """
     entries = get_all_entries(filename)
-    return all(k in entries and entries[k].strip() != "" for k in keys)
+    return all(value.strip() != "" for value in entries.values())
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(f"Usage: python3 {sys.argv[0]} <filename> [key1] [key2] ...")
+    if len(sys.argv) != 2:
+        print(f"Usage: python3 {sys.argv[0]} <filename>")
         sys.exit(1)
 
     filename = sys.argv[1]
-    keys_to_check = sys.argv[2:]
 
     try:
-        result = has_all_keys(filename, keys_to_check)
+        result = has_all_keys(filename)
         print(result)
         sys.exit(0 if result else 2)
     except Exception as e:
