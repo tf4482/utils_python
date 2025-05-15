@@ -3,20 +3,33 @@
 import os
 import sys
 
+# Directory where config files are stored
 TARGET_DIR = "/etc"
 
 
-def get_all_entries(conf_path: str) -> dict[str, str]:
+def get_all_entries(filename: str) -> dict[str, str]:
     """
-    Reads all key=value entries from a configuration file.
+    Reads all key=value entries from a configuration file in TARGET_DIR.
 
     Args:
-        conf_path (str): Full path to the configuration file.
+        filename (str): Filename (with or without extension).
 
     Returns:
         dict[str, str]: Dictionary with keys and their corresponding values.
-                        If a key has no value, value is empty string.
+                        If a key has no value, the value is an empty string.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        RuntimeError: On read or parse error.
     """
+    if "." not in os.path.basename(filename):
+        filename += ".conf"
+
+    conf_path = os.path.join(TARGET_DIR, filename)
+
+    if not os.path.isfile(conf_path):
+        raise FileNotFoundError(f"File does not exist: {conf_path}")
+
     entries = {}
     try:
         with open(conf_path, "r") as f:
@@ -31,42 +44,24 @@ def get_all_entries(conf_path: str) -> dict[str, str]:
                     entries[stripped] = ""
     except Exception as e:
         raise RuntimeError(f"Failed to read or parse {conf_path}: {e}")
+
     return entries
 
 
-def has_keys(
-    filename: str, keys: list[str] | None = None
-) -> dict[str, bool] | dict[str, str]:
+def has_all_keys(filename: str, keys: list[str]) -> bool:
     """
-    Checks presence of specified keys in a config file in TARGET_DIR.
-    If keys is None or empty, returns all key=value pairs.
+    Checks whether all specified keys exist in the config file
+    and have non-empty, non-whitespace values.
 
     Args:
-        filename (str): Config file name (with or without extension).
-        keys (list[str] | None): Keys to check. If None or empty, return all entries.
+        filename (str): Filename (with or without extension).
+        keys (list[str]): Keys to validate.
 
     Returns:
-        dict[str, bool]: Mapping of key -> True/False for presence of each key (if keys specified).
-        dict[str, str]: All key=value pairs in the file (if no keys specified).
-
-    Raises:
-        FileNotFoundError: If config file not found.
-        RuntimeError: For read/parse errors.
+        bool: True if all keys are present and valid, False otherwise.
     """
-    if "." not in os.path.basename(filename):
-        filename += ".conf"
-
-    conf_path = os.path.join(TARGET_DIR, filename)
-
-    if not os.path.isfile(conf_path):
-        raise FileNotFoundError(f"File does not exist: {conf_path}")
-
-    entries = get_all_entries(conf_path)
-
-    if not keys:
-        return entries
-
-    return {k: (k in entries) for k in keys}
+    entries = get_all_entries(filename)
+    return all(k in entries and entries[k].strip() != "" for k in keys)
 
 
 if __name__ == "__main__":
@@ -78,20 +73,9 @@ if __name__ == "__main__":
     keys_to_check = sys.argv[2:]
 
     try:
-        result = has_keys(filename, keys_to_check if keys_to_check else None)
-        if isinstance(result, dict) and all(
-            isinstance(v, str) for v in result.values()
-        ):
-            for key, value in result.items():
-                print(f"{key}={value}")
-            sys.exit(0)
-        elif isinstance(result, dict):
-            for key, present in result.items():
-                print(f"{key}: {'True' if present else 'False'}")
-            sys.exit(0 if all(result.values()) else 2)
-        else:
-            print(result)
-            sys.exit(0)
+        result = has_all_keys(filename, keys_to_check)
+        print(result)
+        sys.exit(0 if result else 2)
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
