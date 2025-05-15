@@ -14,7 +14,11 @@ def filecheck(filepath: str) -> bool:
     Returns:
         bool: True if the file exists and is a file, False otherwise.
     """
-    return Path(filepath).is_file()
+    try:
+        return Path(filepath).is_file()
+    except Exception as e:
+        print(f"Error checking file: {e}")
+        return False
 
 
 if __name__ == "__main__":
