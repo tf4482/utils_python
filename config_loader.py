@@ -3,7 +3,7 @@ config_loader.py – Generic JSON configuration loader.
 
 Usage in any project
 --------------------
-    from config_loader import load_config
+    from utils_python.config_loader import load_config
 
     CFG_DEFAULTS = {
         "MY_KEY": "placeholder-value",
@@ -19,7 +19,10 @@ Usage in any project
 
 Search order
 ------------
-1. ``<directory of the calling script>/config_filename``
+When ``config_path`` is supplied, only that exact path is loaded. Otherwise:
+
+1. ``local_dir/config_filename`` when ``local_dir`` is supplied, or
+   ``<directory of the calling script>/config_filename``
 2. ``~/.config/app_name/config_filename``
 
 If no file is found a placeholder is written to location 2 and
@@ -29,6 +32,7 @@ If no file is found a placeholder is written to location 2 and
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -40,6 +44,8 @@ def load_config(
     defaults: dict[str, Any],
     *,
     caller_file: str | None = None,
+    config_path: str | Path | None = None,
+    local_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     """Locate, load and return the JSON configuration for *app_name*.
 
@@ -58,7 +64,14 @@ def load_config(
         Pass ``__file__`` from the calling module so that the local
         (next-to-script) config path can be resolved correctly.
         Defaults to the directory that contains *this* module when
-        omitted, which is usually wrong – always pass ``__file__``.
+        omitted. Prefer ``local_dir`` when the application's local search
+        directory is not the calling script's directory.
+    config_path:
+        Exact configuration path to load. No fallback or placeholder is
+        used when this path is supplied.
+    local_dir:
+        Directory to search before the user-level path. This takes precedence
+        over ``caller_file`` when both are supplied.
 
     Returns
     -------
@@ -71,16 +84,31 @@ def load_config(
         When no config file exists.  A placeholder is created at the
         user-level path before exiting.
     """
-    base_dir   = Path(caller_file).parent if caller_file else Path(__file__).parent
-    local_cfg  = base_dir / config_filename
-    user_cfg   = Path.home() / ".config" / app_name / config_filename
+    if config_path is not None:
+        cfg_path = Path(config_path).expanduser()
+        if not cfg_path.is_file():
+            raise FileNotFoundError(f"Configuration file not found: {cfg_path}")
+        with cfg_path.open(encoding="utf-8") as file:
+            return json.load(file)
 
-    cfg_path = next((p for p in (local_cfg, user_cfg) if p.exists()), None)
+    if local_dir is not None:
+        base_dir = Path(local_dir).expanduser()
+    elif caller_file is not None:
+        base_dir = Path(caller_file).resolve().parent
+    else:
+        base_dir = Path(__file__).resolve().parent
+
+    local_cfg = base_dir / config_filename
+    user_cfg = Path.home() / ".config" / app_name / config_filename
+
+    cfg_path = next((path for path in (local_cfg, user_cfg) if path.is_file()), None)
 
     if cfg_path is None:
         user_cfg.parent.mkdir(parents=True, exist_ok=True)
-        with open(user_cfg, "w", encoding="utf-8") as fh:
-            json.dump(defaults, fh, indent=4)
+        descriptor = os.open(user_cfg, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+            json.dump(defaults, file, indent=2)
+            file.write("\n")
         print(
             f"⚙️  No config file found. A placeholder has been created at:\n"
             f"   {user_cfg}\n"
@@ -88,5 +116,5 @@ def load_config(
         )
         sys.exit(1)
 
-    with open(cfg_path, encoding="utf-8") as fh:
-        return json.load(fh)
+    with cfg_path.open(encoding="utf-8") as file:
+        return json.load(file)

@@ -51,10 +51,11 @@ This project contains a collection of universal Python functions and scripts des
   - **CLI usage:** `python3 check_config.py <filename>` (exits `0` if all filled, `2` if not, `1` on error)
 
 - **[`config_loader.py`](config_loader.py)**
-  - `load_config(app_name, config_filename, defaults, *, caller_file=None)`: Locates and loads a JSON configuration file for an application. Searches first next to the calling script, then in `~/.config/<app_name>/`. If no file is found, a placeholder is written to the user-level path and `SystemExit(1)` is raised.
+  - `load_config(app_name, config_filename, defaults, *, caller_file=None, config_path=None, local_dir=None)`: Locates and loads a JSON configuration file for an application. `config_path` loads one exact path without fallback. Otherwise, the loader searches `local_dir` when provided, the calling script directory as a fallback, and then `~/.config/<app_name>/`. If no file is found, a private placeholder is written to the user-level path and `SystemExit(1)` is raised.
   - **Search order:**
-    1. `<directory of calling script>/<config_filename>`
-    2. `~/.config/<app_name>/<config_filename>`
+    1. Exact `config_path`, when supplied.
+    2. `<local_dir>/<config_filename>`, when supplied, or `<directory of calling script>/<config_filename>`.
+    3. `~/.config/<app_name>/<config_filename>`.
 
 ## Usage
 
