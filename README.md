@@ -8,8 +8,10 @@ This project contains a collection of universal Python functions and scripts des
 
 - **[`colored_text.py`](colored_text.py)**
   - `check_type(input_data)`: Converts input data to a string, delegating to `convert_to_string` for complex types.
-  - `output(color, text)`: Prints text in the specified color using ANSI escape codes.
-  - `print_colored(color, input_data)`: Prints input data in the specified color.
+  - `supports_color(stream=None)`: Detects interactive ANSI color support and honors `NO_COLOR` and `TERM=dumb`.
+  - `colorize(input_data, color, enabled=None, stream=None)`: Returns optionally ANSI-colored text for composing formatted output.
+  - `output(color, text, stream=None, enabled=None)`: Prints text using TTY-aware ANSI colors.
+  - `print_colored(color, input_data, stream=None, enabled=None)`: Prints arbitrary input data using TTY-aware ANSI colors.
   - **Supported colors:** `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `lgrey`, `grey`, `lred`, `lgreen`, `lyellow`, `lblue`, `lmagenta`, `lcyan`, `white`
   - **CLI usage:** `python colored_text.py <color> <text>`
 
@@ -20,11 +22,11 @@ This project contains a collection of universal Python functions and scripts des
   - `traverse_and_apply(base_dir, action, max_depth=None)`: Recursively traverses a directory and applies a callable `action` to each subdirectory path. Raises `NotADirectoryError` if `base_dir` does not exist.
 
 - **[`list_files.py`](list_files.py)**
-  - `list_files(target_dir, file_extension=None)`: Recursively lists all files in a directory, optionally filtered by file extension. Returns a list of file paths.
+  - `list_files(target_dir, file_extension=None)`: Recursively lists all files in a directory through `directory_traversal`, verifies entries through `filecheck`, optionally filters by extension, and returns sorted paths.
   - **CLI usage:** `python list_files.py <target_dir> [-e <extension>]`
 
 - **[`select_file.py`](select_file.py)**
-  - `select_file(directory, extension=None)`: Presents an interactive terminal menu to select a file from a directory. Navigate with `w`/`s`, confirm with `Enter`, cancel with `q`. Returns the absolute path of the selected file, or `None` if cancelled.
+  - `select_file(directory, extension=None)`: Presents an interactive terminal menu over recursively discovered files. Navigate with `w`/`s`, confirm with `Enter`, cancel with `q`. Returns the absolute path of the selected file, or `None` if cancelled.
   - **CLI usage:** `python select_file.py <directory> [<extension>]`
 
 - **[`copy_files.py`](copy_files.py)**
@@ -40,8 +42,8 @@ This project contains a collection of universal Python functions and scripts des
 
 - **[`create_config.py`](create_config.py)**
   - `create_config(filename, settings)`: Creates a YAML (`.yml`) configuration file in `/etc/` from a list of `key=value` or bare `key` strings. Dot-separated keys create nested YAML structures. Returns the full path to the created file.
-  - `parse_key_value_list(settings)`: Parses a list of `key=value` strings into a nested dictionary.
-  - `deep_set(dic, path, value)`: Sets a value in a nested dictionary using a list of keys as a path.
+  - `parse_key_value_list(settings, value_parser=None)`: Parses a list of `key=value` strings into a nested dictionary and optionally converts values through a supplied callable.
+  - `deep_set(dic, path, value)`: Sets a value of any type in a nested dictionary using a list of keys as a path.
   - **CLI usage:** `sudo python3 create_config.py <filename> [key[=value] ...]`
 
 - **[`check_config.py`](check_config.py)**
@@ -51,6 +53,7 @@ This project contains a collection of universal Python functions and scripts des
   - **CLI usage:** `python3 check_config.py <filename>` (exits `0` if all filled, `2` if not, `1` on error)
 
 - **[`config_loader.py`](config_loader.py)**
+  - `find_config_path(app_name, config_filename, *, caller_file=None, config_path=None, local_dir=None)`: Returns the selected configuration path without loading or creating it.
   - `load_config(app_name, config_filename, defaults, *, caller_file=None, config_path=None, local_dir=None)`: Locates and loads a JSON configuration file for an application. `config_path` loads one exact path without fallback. Otherwise, the loader searches `local_dir` when provided, the calling script directory as a fallback, and then `~/.config/<app_name>/`. If no file is found, a private placeholder is written to the user-level path and `SystemExit(1)` is raised.
   - **Search order:**
     1. Exact `config_path`, when supplied.

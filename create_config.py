@@ -2,30 +2,35 @@
 
 import os
 import sys
+from collections.abc import Callable
+from typing import Any
 
 import yaml
 
 TARGET_DIR = "/etc"
 
 
-def deep_set(dic: dict, path: list[str], value: str):
+def deep_set(dic: dict, path: list[str], value: Any):
     """Sets a value in a nested dictionary given a path list."""
     for key in path[:-1]:
         dic = dic.setdefault(key, {})
     dic[path[-1]] = value
 
 
-def parse_key_value_list(settings: list[str]) -> dict:
+def parse_key_value_list(
+    settings: list[str], value_parser: Callable[[str], Any] | None = None
+) -> dict:
     """
     Parses a list of key=value or key strings into a nested dictionary.
     If no value is provided, the key is assigned an empty string.
     """
     result = {}
+    parse_value = value_parser or (lambda value: value)
     for item in settings:
         if "=" in item:
             key_path, value = item.split("=", 1)
             key_parts = key_path.strip().split(".")
-            deep_set(result, key_parts, value.strip())
+            deep_set(result, key_parts, parse_value(value.strip()))
         else:
             key_parts = item.strip().split(".")
             deep_set(result, key_parts, "")

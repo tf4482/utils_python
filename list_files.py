@@ -1,6 +1,13 @@
 import argparse
 import os
 
+try:
+    from .directory_traversal import traverse_and_apply
+    from .filecheck import filecheck
+except ImportError:  # Support direct script execution.
+    from directory_traversal import traverse_and_apply
+    from filecheck import filecheck
+
 
 def list_files(target_dir, file_extension=None):
     """
@@ -19,17 +26,21 @@ def list_files(target_dir, file_extension=None):
     if not os.path.isdir(target_dir):
         raise ValueError(f"The provided path {target_dir} is not a valid directory.")
 
+    directories = [target_dir]
+    traverse_and_apply(target_dir, directories.append)
     result_files = []
 
-    for root, dirs, files in os.walk(target_dir):
-        for file in files:
-            if file_extension:
-                if file.endswith(file_extension):
-                    result_files.append(os.path.join(root, file))
-            else:
-                result_files.append(os.path.join(root, file))
+    for root in directories:
+        for file in os.listdir(root):
+            path = os.path.join(root, file)
+            if filecheck(path):
+                if file_extension:
+                    if file.endswith(file_extension):
+                        result_files.append(path)
+                else:
+                    result_files.append(path)
 
-    return result_files
+    return sorted(result_files)
 
 
 def main():
