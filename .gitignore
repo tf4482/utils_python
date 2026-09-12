@@ -76,6 +76,7 @@ files/*
 Homestead.json
 Homestead.yaml
 inventory/
+inventory.backup/
 ipynb_checkpoints/
 jspm_packages/
 lerna-debug.log*
@@ -107,3 +108,9 @@ vendor/
 wheels/
 yarn-debug.log*
 yarn-error.log*
+
+# Project-local environment and credentials
+.venv/
+config.json
+config.json.backup
+config.json.before-ssh-fix
