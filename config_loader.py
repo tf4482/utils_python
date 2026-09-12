@@ -37,6 +37,35 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .filecheck import filecheck
+
+
+def find_config_path(
+    app_name: str,
+    config_filename: str,
+    *,
+    caller_file: str | None = None,
+    config_path: str | Path | None = None,
+    local_dir: str | Path | None = None,
+) -> Path | None:
+    """Return the selected configuration path without loading or creating it."""
+    if config_path is not None:
+        candidate = Path(config_path).expanduser()
+        return candidate if filecheck(str(candidate)) else None
+
+    if local_dir is not None:
+        base_dir = Path(local_dir).expanduser()
+    elif caller_file is not None:
+        base_dir = Path(caller_file).resolve().parent
+    else:
+        base_dir = Path(__file__).resolve().parent
+
+    candidates = (
+        base_dir / config_filename,
+        Path.home() / ".config" / app_name / config_filename,
+    )
+    return next((path for path in candidates if filecheck(str(path))), None)
+
 
 def load_config(
     app_name: str,
@@ -86,7 +115,7 @@ def load_config(
     """
     if config_path is not None:
         cfg_path = Path(config_path).expanduser()
-        if not cfg_path.is_file():
+        if not filecheck(str(cfg_path)):
             raise FileNotFoundError(f"Configuration file not found: {cfg_path}")
         with cfg_path.open(encoding="utf-8") as file:
             return json.load(file)
@@ -98,10 +127,13 @@ def load_config(
     else:
         base_dir = Path(__file__).resolve().parent
 
-    local_cfg = base_dir / config_filename
     user_cfg = Path.home() / ".config" / app_name / config_filename
-
-    cfg_path = next((path for path in (local_cfg, user_cfg) if path.is_file()), None)
+    cfg_path = find_config_path(
+        app_name,
+        config_filename,
+        caller_file=caller_file,
+        local_dir=base_dir,
+    )
 
     if cfg_path is None:
         user_cfg.parent.mkdir(parents=True, exist_ok=True)

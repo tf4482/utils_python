@@ -3,6 +3,11 @@
 import os
 import sys
 
+try:
+    from .list_files import list_files
+except ImportError:  # Support direct script execution.
+    from list_files import list_files
+
 
 def select_file(directory, extension=None):
     """
@@ -16,19 +21,14 @@ def select_file(directory, extension=None):
         str: The absolute path of the selected file, or None if cancelled or no files found.
     """
 
-    def list_files(directory, extension):
-        if extension:
-            return [f for f in os.listdir(directory) if f.endswith(extension)]
-        else:
-            return os.listdir(directory)
-
     def display_menu(files, selected_index):
         os.system('cls' if os.name == 'nt' else 'clear')
         for index, file in enumerate(files):
+            display_name = os.path.relpath(file, directory)
             if index == selected_index:
-                print(f"> {file}")
+                print(f"> {display_name}")
             else:
-                print(f"  {file}")
+                print(f"  {display_name}")
 
     files = list_files(directory, extension)
 
@@ -49,7 +49,7 @@ def select_file(directory, extension=None):
         elif key == 's':
             selected_index = (selected_index + 1) % len(files)
         elif key == '':
-            return os.path.abspath(os.path.join(directory, files[selected_index]))
+            return os.path.abspath(files[selected_index])
         elif key == 'q':
             print("Selection cancelled.")
             return None
