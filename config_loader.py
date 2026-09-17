@@ -37,6 +37,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .colored_text import output
 from .filecheck import filecheck
 
 
@@ -141,10 +142,11 @@ def load_config(
         with os.fdopen(descriptor, "w", encoding="utf-8") as file:
             json.dump(defaults, file, indent=2)
             file.write("\n")
-        print(
+        output(
+            "lyellow",
             f"⚙️  No config file found. A placeholder has been created at:\n"
-            f"   {user_cfg}\n"
-            f"Please fill it in and restart the script."
+            f"   📄 {user_cfg}\n"
+            "✏️  Please fill it in and restart the script.",
         )
         sys.exit(1)
 

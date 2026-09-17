@@ -26,6 +26,7 @@ This project contains a collection of universal Python functions and scripts des
   - **CLI usage:** `python list_files.py <target_dir> [-e <extension>]`
 
 - **[`select_file.py`](select_file.py)**
+  - `select_option(options, *, prompt="Select an option", display=str, input_stream=None, output_stream=None)`: Presents a deterministic numbered terminal menu for any sequence and returns the selected item or `None` when cancelled/end-of-input is reached.
   - `select_file(directory, extension=None)`: Presents an interactive terminal menu over recursively discovered files. Navigate with `w`/`s`, confirm with `Enter`, cancel with `q`. Returns the absolute path of the selected file, or `None` if cancelled.
   - **CLI usage:** `python select_file.py <directory> [<extension>]`
 
