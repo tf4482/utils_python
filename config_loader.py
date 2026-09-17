@@ -1,5 +1,5 @@
 """
-config_loader.py – Generic JSON configuration loader.
+config_loader.py – Generic JSON and YAML configuration loader.
 
 Usage in any project
 --------------------
@@ -12,7 +12,7 @@ Usage in any project
 
     cfg = load_config(
         app_name="my-app",
-        config_filename="my-app-config.json",
+        config_filename="my-app-config.yaml",
         defaults=CFG_DEFAULTS,
     )
     MY_KEY = cfg["MY_KEY"]
@@ -37,8 +37,32 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from .colored_text import output
 from .filecheck import filecheck
+
+
+def _is_yaml(path: Path) -> bool:
+    return path.suffix.lower() in {".yaml", ".yml"}
+
+
+def _load_file(path: Path) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as file:
+        return yaml.safe_load(file) if _is_yaml(path) else json.load(file)
+
+
+def _write_file(path: Path, config: dict[str, Any]) -> None:
+    with os.fdopen(
+        os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600),
+        "w",
+        encoding="utf-8",
+    ) as file:
+        if _is_yaml(path):
+            yaml.safe_dump(config, file, sort_keys=False)
+        else:
+            json.dump(config, file, indent=2)
+            file.write("\n")
 
 
 def find_config_path(
@@ -77,7 +101,7 @@ def load_config(
     config_path: str | Path | None = None,
     local_dir: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Locate, load and return the JSON configuration for *app_name*.
+    """Locate, load and return the JSON or YAML configuration for *app_name*.
 
     Parameters
     ----------
@@ -85,7 +109,7 @@ def load_config(
         Short identifier used to build the user-level config directory
         (``~/.config/<app_name>/``).
     config_filename:
-        Name of the JSON file, e.g. ``"myapp-config.json"``.
+        Name of the JSON or YAML file, e.g. ``"myapp-config.yaml"``.
     defaults:
         Mapping written as a pretty-printed placeholder when no config
         file is found.  Keys whose values start with ``"your-"`` signal
@@ -106,7 +130,7 @@ def load_config(
     Returns
     -------
     dict
-        The parsed JSON object from the located config file.
+        The parsed object from the located config file.
 
     Raises
     ------
@@ -118,8 +142,7 @@ def load_config(
         cfg_path = Path(config_path).expanduser()
         if not filecheck(str(cfg_path)):
             raise FileNotFoundError(f"Configuration file not found: {cfg_path}")
-        with cfg_path.open(encoding="utf-8") as file:
-            return json.load(file)
+        return _load_file(cfg_path)
 
     if local_dir is not None:
         base_dir = Path(local_dir).expanduser()
@@ -138,10 +161,7 @@ def load_config(
 
     if cfg_path is None:
         user_cfg.parent.mkdir(parents=True, exist_ok=True)
-        descriptor = os.open(user_cfg, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
-            json.dump(defaults, file, indent=2)
-            file.write("\n")
+        _write_file(user_cfg, defaults)
         output(
             "lyellow",
             f"⚙️  No config file found. A placeholder has been created at:\n"
@@ -150,5 +170,4 @@ def load_config(
         )
         sys.exit(1)
 
-    with cfg_path.open(encoding="utf-8") as file:
-        return json.load(file)
+    return _load_file(cfg_path)
