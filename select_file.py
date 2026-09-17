@@ -2,11 +2,52 @@
 
 import os
 import sys
+from collections.abc import Callable, Sequence
+from typing import TextIO, TypeVar
 
 try:
+    from .colored_text import output
     from .list_files import list_files
 except ImportError:  # Support direct script execution.
+    from colored_text import output
     from list_files import list_files
+
+T = TypeVar("T")
+
+
+def select_option(
+    options: Sequence[T],
+    *,
+    prompt: str = "Select an option",
+    display: Callable[[T], str] = str,
+    input_stream: TextIO | None = None,
+    output_stream: TextIO | None = None,
+) -> T | None:
+    """Select one item through a deterministic numbered terminal menu."""
+    source = input_stream or sys.stdin
+    target = output_stream or sys.stdout
+    if not options:
+        return None
+    while True:
+        output("lcyan", prompt, stream=target)
+        for index, option in enumerate(options, start=1):
+            output("lblue", f"  {index}. {display(option)}", stream=target)
+        output("lyellow", "  q. Cancel", stream=target)
+        target.flush()
+        answer = source.readline()
+        if answer == "":
+            return None
+        value = answer.strip().casefold()
+        if value == "q":
+            return None
+        try:
+            selected = int(value) - 1
+        except ValueError:
+            output("lred", "❌ Invalid selection.", stream=target)
+            continue
+        if 0 <= selected < len(options):
+            return options[selected]
+        output("lred", "❌ Invalid selection.", stream=target)
 
 
 def select_file(directory, extension=None):
