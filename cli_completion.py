@@ -105,11 +105,46 @@ def install_completion(
 ) -> tuple[Path, bool]:
     """Install completion once, returning its path and whether it was created."""
     target = completion_path(shell, app_name, home=home, environment=environment)
+    script = generate_completion(shell, app_name, commands)
     if target.exists():
-        return target, False
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(generate_completion(shell, app_name, commands), encoding="utf-8")
-    return target, True
+        created = False
+    else:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        created = True
+    if created or target.read_text(encoding="utf-8") != script:
+        target.write_text(script, encoding="utf-8")
+    _install_shell_loader(shell, target, home=home)
+    return target, created
+
+
+def _install_shell_loader(shell: str, completion: Path, *, home: Path | None = None) -> None:
+    """Add a single idempotent completion loader to the shell startup file."""
+    user_home = home or Path.home()
+    match shell.casefold():
+        case "bash":
+            startup = user_home / ".bashrc"
+            loader = f'[[ -r "{completion}" ]] && source "{completion}"'
+        case "zsh":
+            startup = user_home / ".zshrc"
+            loader = f'[[ -r "{completion}" ]] && source "{completion}"'
+        case _:
+            return
+    marker = f"# {completion.name} completion"
+    block = f"\n{marker}\n{loader}\n"
+    content = startup.read_text(encoding="utf-8") if startup.exists() else ""
+    if marker not in content:
+        startup.parent.mkdir(parents=True, exist_ok=True)
+        startup.write_text(content.rstrip() + block, encoding="utf-8")
+
+
+def install_completions(
+    app_name: str,
+    commands: tuple[Command, ...],
+) -> tuple[tuple[str, Path, bool], ...]:
+    """Install completion for every supported shell."""
+    return tuple(
+        (shell, *install_completion(shell, app_name, commands)) for shell in SUPPORTED_SHELLS
+    )
 
 
 def is_completion_installed(
@@ -120,9 +155,10 @@ def is_completion_installed(
     environment: Mapping[str, str] | None = None,
 ) -> bool:
     """Return whether a completion file exists for the selected shell."""
-    return shell is not None and completion_path(
-        shell, app_name, home=home, environment=environment
-    ).is_file()
+    return (
+        shell is not None
+        and completion_path(shell, app_name, home=home, environment=environment).is_file()
+    )
 
 
 def complete_values(
@@ -137,11 +173,7 @@ def complete_values(
         return ()
 
     option = next(
-        (
-            option
-            for option in command.options
-            if option.name == option_name
-        ),
+        (option for option in command.options if option.name == option_name),
         None,
     )
 
@@ -163,12 +195,9 @@ def handle_completion(
         return False
 
     if len(argv) == 1:
-        shell = current_shell()
-        if shell is None:
-            raise SystemExit("Cannot install completion: SHELL is not Bash, Zsh, or Fish")
-        path, created = install_completion(shell, app_name, commands)
-        message = "Installed" if created else "Completion already exists"
-        print(f"{message}: {path}")
+        for shell, path, created in install_completions(app_name, commands):
+            message = "Installed" if created else "Completion already exists"
+            print(f"{shell}: {message}: {path}")
         return True
 
     if len(argv) >= 4 and argv[1] == "values":
@@ -221,10 +250,7 @@ def _generate_bash(
 
         for option in command.options:
             if option.completer is not None:
-                source = (
-                    f"$({app_name} completion values "
-                    f"{command.name} {option.name})"
-                )
+                source = f"$({app_name} completion values {command.name} {option.name})"
 
                 value_cases.append(
                     f"""            {option.name})
@@ -249,7 +275,7 @@ def _generate_bash(
 {chr(10).join(value_cases)}
             esac
 
-            COMPREPLY=( $(compgen -W "{' '.join(available)}" -- "$cur") )
+            COMPREPLY=( $(compgen -W "{" ".join(available)}" -- "$cur") )
             return
             ;;"""
         )
@@ -285,8 +311,7 @@ def _generate_zsh(
 
     visible_commands = tuple(command for command in commands if command.name != "completion")
     root_commands = " ".join(
-        _zsh_entry(command.name, command.description)
-        for command in visible_commands
+        _zsh_entry(command.name, command.description) for command in visible_commands
     )
 
     command_cases = []
@@ -338,10 +363,11 @@ def _generate_zsh(
 {chr(10).join(value_cases)}
             esac
 
-            _values "{command.name}" {' '.join(entries)}
+            _values "{command.name}" {" ".join(entries)}
             ;;"""
         )
 
+    fallback_function = f"{function_name}_fallback"
     return f"""\
 #compdef {app_name}
 
@@ -356,8 +382,29 @@ def _generate_zsh(
     esac
 }}
 
-compdef {function_name} {app_name}
+{fallback_function}() {{
+    local command="${{words[2]}}"
+    case "$command" in
+{chr(10).join(_zsh_compctl_case(app_name, command) for command in visible_commands)}
+    esac
+    reply=({" ".join(command.name for command in visible_commands)})
+}}
+
+if (( $+functions[compdef] )); then
+    compdef {function_name} {app_name}
+else
+    compctl -K {fallback_function} {app_name}
+fi
 """
+
+
+def _zsh_compctl_case(app_name: str, command: Command) -> str:
+    options = " ".join(option.name for option in command.options)
+    subcommands = " ".join(subcommand.name for subcommand in command.subcommands)
+    values = f"{options} {subcommands}".strip()
+    return f"""        {command.name})
+            reply=({values})
+            ;;"""
 
 
 def _generate_fish(
@@ -372,74 +419,44 @@ def _generate_fish(
         if command.name == "completion":
             continue
 
-        line = (
-            f"complete -c {app_name} "
-            f"-n '__fish_use_subcommand' "
-            f"-a '{command.name}'"
-        )
+        line = f"complete -c {app_name} -n '__fish_use_subcommand' -a '{command.name}'"
 
         if command.description:
             line += f" -d '{_escape_fish(command.description)}'"
 
         lines.append(line)
 
-        command_condition = (
-            f"__fish_seen_subcommand_from {command.name}"
-        )
+        command_condition = f"__fish_seen_subcommand_from {command.name}"
 
         for subcommand in command.subcommands:
-            line = (
-                f"complete -c {app_name} "
-                f"-n '{command_condition}' "
-                f"-a '{subcommand.name}'"
-            )
+            line = f"complete -c {app_name} -n '{command_condition}' -a '{subcommand.name}'"
 
             if subcommand.description:
-                line += (
-                    f" -d '{_escape_fish(subcommand.description)}'"
-                )
+                line += f" -d '{_escape_fish(subcommand.description)}'"
 
             lines.append(line)
 
         for option in command.options:
-            line = (
-                f"complete -c {app_name} "
-                f"-n '{command_condition}' "
-                f"-a '{option.name}'"
-            )
+            line = f"complete -c {app_name} -n '{command_condition}' -a '{option.name}'"
 
             if option.description:
-                line += (
-                    f" -d '{_escape_fish(option.description)}'"
-                )
+                line += f" -d '{_escape_fish(option.description)}'"
 
             lines.append(line)
 
             value_condition = (
-                f"{command_condition}; "
-                f"and test (commandline -opc)[-1] = '{option.name}'"
+                f"{command_condition}; and test (commandline -opc)[-1] = '{option.name}'"
             )
 
             if option.completer is not None:
-                values = (
-                    f"({app_name} completion values "
-                    f"{command.name} {option.name})"
-                )
+                values = f"({app_name} completion values {command.name} {option.name})"
 
-                lines.append(
-                    f"complete -c {app_name} "
-                    f"-n \"{value_condition}\" "
-                    f'-a "{values}"'
-                )
+                lines.append(f'complete -c {app_name} -n "{value_condition}" -a "{values}"')
 
             elif option.values:
                 values = " ".join(option.values)
 
-                lines.append(
-                    f"complete -c {app_name} "
-                    f"-n \"{value_condition}\" "
-                    f"-a '{values}'"
-                )
+                lines.append(f"complete -c {app_name} -n \"{value_condition}\" -a '{values}'")
 
     return "\n".join(lines) + "\n"
 
@@ -456,15 +473,8 @@ def _zsh_entry(
 
 
 def _escape_fish(value: str) -> str:
-    return (
-        value
-        .replace("\\", "\\\\")
-        .replace("'", "\\'")
-    )
+    return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
 def _sanitize(value: str) -> str:
-    return "".join(
-        character if character.isalnum() else "_"
-        for character in value
-    )
+    return "".join(character if character.isalnum() else "_" for character in value)
